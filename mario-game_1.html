@@ -39,6 +39,7 @@
       right: 0;
       bottom: 4%;
       display: flex;
+      direction: ltr;
       justify-content: space-between;
       align-items: flex-end;
       padding: 0 4%;
@@ -46,6 +47,7 @@
   }
   .touch-side {
       display: flex;
+      direction: ltr;
       gap: 12px;
       pointer-events: auto;
   }
@@ -84,6 +86,43 @@
   @media (hover: hover) and (pointer: fine) {
       .touch-controls { display: none; }
   }
+  .hud-controls {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      direction: ltr;
+      gap: 8px;
+      z-index: 15;
+  }
+  .icon-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.6);
+      background: rgba(20, 10, 40, 0.55);
+      color: #fff;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+  }
+  .icon-btn:hover { background: rgba(20, 10, 40, 0.8); }
+  .icon-btn:focus-visible { outline: 2px solid #ffd97a; outline-offset: 2px; }
+  .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+  }
   .char-select-overlay {
       position: absolute;
       inset: 0;
@@ -103,6 +142,7 @@
       text-align: center;
       color: #fff;
       max-width: 88%;
+      line-height: 1.5;
   }
   .char-select-panel h2 {
       margin: 0 0 10px;
@@ -136,12 +176,53 @@
       background: linear-gradient(180deg, #8fd0ff, #d6f3ff);
       border-radius: 8px;
   }
+  #startScreen { z-index: 25; }
+  .start-title {
+      margin: 0 0 4px;
+      font-size: 20px;
+  }
+  .start-sub {
+      margin: 0 0 8px;
+      font-size: 12px;
+      opacity: 0.85;
+  }
+  .start-best {
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: #ffd97a;
+  }
+  .start-btn {
+      background: linear-gradient(135deg, #ffd97a, #f5a623);
+      color: #3a2200;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 26px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+  }
+  .start-btn:hover { filter: brightness(1.08); }
+  .start-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .start-hint {
+      margin: 10px 0 0;
+      font-size: 11px;
+      opacity: 0.75;
+  }
 </style>
 </head>
 <body>
 
 <div class="game-wrap">
-  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <canvas id="gameCanvas" width="800" height="400" role="img" aria-label="صفحه بازی: دخترک ماجراجو در حال پریدن روی سکوها و جمع‌کردن سکه‌ها">
+    مرورگر شما از canvas پشتیبانی نمی‌کند. لطفاً از یک مرورگر جدیدتر استفاده کنید.
+  </canvas>
+  <div class="hud-controls">
+    <button id="btnMute" class="icon-btn" aria-label="قطع/وصل صدا" aria-pressed="false">🔊</button>
+    <button id="btnRestart" class="icon-btn" aria-label="شروع دوباره بازی">↻</button>
+  </div>
+  <div id="liveRegion" class="sr-only" role="status" aria-live="polite"></div>
   <div class="touch-controls">
     <div class="touch-side">
       <button id="btnLeft" class="touch-btn" aria-label="چپ">◀</button>
@@ -149,7 +230,16 @@
     </div>
     <button id="btnJump" class="touch-btn touch-jump" aria-label="پرش">⤒</button>
   </div>
-  <div class="char-select-overlay" id="charSelectOverlay">
+  <div class="char-select-overlay" id="startScreen">
+    <div class="char-select-panel start-panel">
+      <h1 class="start-title">🏰 دخترک ماجراجو</h1>
+      <p class="start-sub">جمع کن، بپر، قدرت بگیر و به دروازه برس!</p>
+      <p class="start-best">بهترین امتیاز: <span id="startBestScore">0</span></p>
+      <button id="btnStartGame" class="start-btn">شروع بازی 🎮</button>
+      <p class="start-hint">کنترل: کلیدهای جهت‌دار / دکمه پرش، یا دکمه‌های لمسی روی موبایل</p>
+    </div>
+  </div>
+  <div class="char-select-overlay hidden" id="charSelectOverlay">
     <div class="char-select-panel">
       <h2>یک کاراکتر رو انتخاب کن</h2>
       <div class="char-cards">
@@ -171,10 +261,66 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 const gravity = 0.5;
+const maxFallSpeed = 14; // جلوگیری از عبور بازیکن از داخل سکوهای نازک در سقوط سریع
 let score = 0;
+
+// دسترسی امن به localStorage (در برخی محیط‌ها مثل file:// دسترسی ممکن است مسدود باشد)
+function loadLS(key, fallback) {
+    try { return localStorage.getItem(key) ?? fallback; } catch (e) { return fallback; }
+}
+function saveLS(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* ذخیره‌سازی در دسترس نیست، نادیده گرفته می‌شود */ }
+}
+
+let bestScore = Number(loadLS('advGirlBestScore', 0)) || 0;
 let cameraX = 0;
 let frameCount = 0;
 let selectedCharacter = 'girl';
+
+// --- صدا (با Web Audio API، بدون نیاز به فایل خارجی) ---
+let audioCtx = null;
+let muted = loadLS('advGirlMuted', '0') === '1';
+function getAudioCtx() {
+    if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+}
+function playTone(freq, duration, type = 'square', startGain = 0.15, delay = 0) {
+    if (muted) return;
+    const ac = getAudioCtx();
+    if (!ac) return;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ac.currentTime + delay);
+    gain.gain.setValueAtTime(startGain, ac.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + delay + duration);
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(ac.currentTime + delay);
+    osc.stop(ac.currentTime + delay + duration);
+}
+const sfx = {
+    jump: () => playTone(520, 0.12, 'square', 0.12),
+    coin: () => { playTone(880, 0.08, 'square', 0.12); playTone(1320, 0.1, 'square', 0.1, 0.06); },
+    power: () => { playTone(300, 0.1, 'sawtooth', 0.12); playTone(500, 0.1, 'sawtooth', 0.12, 0.1); playTone(700, 0.15, 'sawtooth', 0.12, 0.2); },
+    stomp: () => playTone(180, 0.15, 'sawtooth', 0.15),
+    hurt: () => { playTone(220, 0.1, 'sawtooth', 0.15); playTone(140, 0.18, 'sawtooth', 0.15, 0.1); },
+    levelComplete: () => { [523, 659, 784, 1046].forEach((f, i) => playTone(f, 0.16, 'square', 0.12, i * 0.11)); },
+    victory: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => playTone(f, 0.22, 'square', 0.13, i * 0.14)); }
+};
+
+// --- اعلام وضعیت برای صفحه‌خوان‌ها (Screen Reader) ---
+const liveRegion = document.getElementById('liveRegion');
+let lastAnnouncement = '';
+function announce(text) {
+    if (text === lastAnnouncement) return;
+    lastAnnouncement = text;
+    liveRegion.textContent = text;
+}
 
 // تعریف مراحل بازی (هر مرحله طولانی‌تر و سخت‌تر از قبلی)
 const LEVELS = [
@@ -325,8 +471,8 @@ let enemies = [];
 let powerups = [];
 let goal = null;
 
-// gameState: 'playing' | 'transition' | 'won'
-let gameState = 'playing';
+// gameState: 'start' | 'playing' | 'transition' | 'won'
+let gameState = 'start';
 let transitionTimer = 0;
 let transitionMessage = '';
 
@@ -336,6 +482,7 @@ function doJump() {
     if (player.grounded) {
         player.dy = player.jumpPower;
         player.grounded = false;
+        sfx.jump();
     }
 }
 
@@ -346,6 +493,7 @@ document.addEventListener('keydown', (e) => {
     if (gameState === 'won' && (e.key === 'Enter' || e.key === ' ')) {
         startGame();
     }
+    if (e.key === 'r' || e.key === 'R') startGame();
 });
 
 document.addEventListener('keyup', (e) => {
@@ -373,6 +521,15 @@ bindTouchButton('btnJump', () => {
     doJump();
 }, () => {});
 
+// صفحه شروع بازی
+const startScreen = document.getElementById('startScreen');
+document.getElementById('startBestScore').textContent = String(bestScore);
+document.getElementById('btnStartGame').addEventListener('click', () => {
+    getAudioCtx();
+    startScreen.classList.add('hidden');
+    charSelectOverlay.classList.remove('hidden');
+});
+
 // انتخاب کاراکتر (دخترک یا پسرک)
 const charSelectOverlay = document.getElementById('charSelectOverlay');
 document.querySelectorAll('.char-card').forEach(card => {
@@ -381,8 +538,23 @@ document.querySelectorAll('.char-card').forEach(card => {
         document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
         charSelectOverlay.classList.add('hidden');
+        startGame();
     });
 });
+
+// دکمه قطع/وصل صدا و شروع دوباره
+const btnMute = document.getElementById('btnMute');
+btnMute.textContent = muted ? '🔇' : '🔊';
+btnMute.setAttribute('aria-pressed', String(muted));
+btnMute.addEventListener('click', () => {
+    muted = !muted;
+    saveLS('advGirlMuted', muted ? '1' : '0');
+    btnMute.textContent = muted ? '🔇' : '🔊';
+    btnMute.setAttribute('aria-pressed', String(muted));
+    if (!muted) { getAudioCtx(); }
+});
+
+document.getElementById('btnRestart').addEventListener('click', () => startGame());
 
 function loadLevel(index) {
     const level = LEVELS[index];
@@ -412,6 +584,8 @@ function resetLevel() {
 }
 
 function startGame() {
+    startScreen.classList.add('hidden');
+    charSelectOverlay.classList.add('hidden');
     score = 0;
     currentLevelIndex = 0;
     gameState = 'playing';
@@ -454,6 +628,7 @@ function updatePowerups() {
             return;
         }
         p.dy += gravity;
+        if (p.dy > maxFallSpeed) p.dy = maxFallSpeed;
         p.x += p.dx;
         p.y += p.dy;
 
@@ -480,15 +655,28 @@ function updatePowerups() {
 function update() {
     frameCount++;
 
+    if (gameState === 'start') {
+        draw();
+        requestAnimationFrame(update);
+        return;
+    }
+
     if (gameState === 'transition') {
         transitionTimer--;
         if (transitionTimer <= 0) {
             currentLevelIndex++;
             if (currentLevelIndex >= LEVELS.length) {
                 gameState = 'won';
+                sfx.victory();
+                if (score > bestScore) {
+                    bestScore = score;
+                    saveLS('advGirlBestScore', String(bestScore));
+                }
+                announce(`همه مراحل رو کامل کردی! امتیاز نهایی: ${score}. بهترین امتیاز: ${bestScore}`);
             } else {
                 loadLevel(currentLevelIndex);
                 gameState = 'playing';
+                announce(`مرحله ${currentLevelIndex + 1} از ${LEVELS.length} شروع شد`);
             }
         }
         draw();
@@ -509,6 +697,7 @@ function update() {
 
     player.x += player.dx;
     player.dy += gravity;
+    if (player.dy > maxFallSpeed) player.dy = maxFallSpeed;
     player.y += player.dy;
 
     if (player.x < 0) player.x = 0;
@@ -534,6 +723,8 @@ function update() {
 
     // اگر از پایین صفحه بیفتد، مرحله از نو شروع شود
     if (player.y > canvas.height) {
+        sfx.hurt();
+        announce('افتادی! مرحله از نو شروع شد');
         resetLevel();
     }
 
@@ -558,6 +749,8 @@ function update() {
             if (distance < player.width / 2 + coin.radius) {
                 coin.collected = true;
                 score += 10;
+                sfx.coin();
+                announce(`امتیاز: ${score}`);
             }
         }
     });
@@ -574,6 +767,8 @@ function update() {
             p.collected = true;
             player.powered = true;
             score += 50;
+            sfx.power();
+            announce('قارچ قدرت گرفتی! حالا می‌تونی خرچنگ‌ها رو له کنی');
         }
     });
 
@@ -590,7 +785,10 @@ function update() {
                 // با چکش خرچنگ رو له می‌کنه
                 enemy.dead = true;
                 score += 20;
+                sfx.stomp();
             } else {
+                sfx.hurt();
+                announce('یک خرچنگ بهت خورد! مرحله از نو شروع شد');
                 resetLevel();
             }
         }
@@ -609,6 +807,11 @@ function update() {
         transitionMessage = (currentLevelIndex < LEVELS.length - 1)
             ? `مرحله ${currentLevelIndex + 1} کامل شد! 🎉`
             : 'آخرین مرحله کامل شد! 🏆';
+        sfx.levelComplete();
+        if (score > bestScore) {
+            bestScore = score;
+            saveLS('advGirlBestScore', String(bestScore));
+        }
     }
 
     // دوربین دنبال بازیکن حرکت می‌کند تا مرحله طولانی‌تر دیده شود
@@ -1042,7 +1245,9 @@ function drawGoal(g) {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const theme = LEVELS[currentLevelIndex].theme;
+    // پس از کامل شدن آخرین مرحله currentLevelIndex از بازه مراحل خارج می‌شود؛
+    // برای جلوگیری از خطا، تم آخرین مرحله معتبر نمایش داده می‌شود
+    const theme = LEVELS[Math.min(currentLevelIndex, LEVELS.length - 1)].theme;
     drawBackground(theme);
 
     // رسم سکوها با تزیینات فانتزی
@@ -1103,14 +1308,17 @@ function draw() {
     // رسم بازیکن (کاراکتر انتخاب‌شده)
     drawPlayerCharacter(ctx, player.x - cameraX, player.y, player.width, player.height, player.facing, player.powered, selectedCharacter, true);
 
-    // نمایش امتیاز و شماره مرحله
-    ctx.fillStyle = '#FFF';
+    // نمایش امتیاز و شماره مرحله (با حاشیه تیره برای خوانایی روی پس‌زمینه‌های روشن)
     ctx.font = '20px Arial';
     ctx.textAlign = 'left';
-    ctx.fillText(`امتیاز: ${score}`, 20, 30);
-    ctx.fillText(`مرحله ${currentLevelIndex + 1} از ${LEVELS.length}`, 20, 55);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillStyle = '#FFF';
+    const hudLine = (text, x, y) => { ctx.strokeText(text, x, y); ctx.fillText(text, x, y); };
+    hudLine(`امتیاز: ${score}  (بهترین: ${bestScore})`, 20, 30);
+    hudLine(`مرحله ${currentLevelIndex + 1} از ${LEVELS.length}`, 20, 55);
     if (player.powered) {
-        ctx.fillText('چکش همراهته! خرچنگ‌ها رو له کن 🔨', 20, 80);
+        hudLine('چکش همراهته! خرچنگ‌ها رو له کن 🔨', 20, 80);
     }
 
     // پیام بین مرحله‌ای
@@ -1134,9 +1342,9 @@ function draw() {
         ctx.fillText('همه مراحل رو کامل کردی! 🏆', canvas.width / 2, canvas.height / 2 - 20);
         ctx.fillStyle = '#FFF';
         ctx.font = '22px Arial';
-        ctx.fillText(`امتیاز نهایی: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+        ctx.fillText(`امتیاز نهایی: ${score} | بهترین امتیاز: ${bestScore}`, canvas.width / 2, canvas.height / 2 + 20);
         ctx.font = '18px Arial';
-        ctx.fillText('برای شروع دوباره دکمه پرش یا Enter را بزن', canvas.width / 2, canvas.height / 2 + 55);
+        ctx.fillText('برای شروع دوباره دکمه پرش، Enter یا R را بزن', canvas.width / 2, canvas.height / 2 + 55);
         ctx.textAlign = 'left';
     }
 }
