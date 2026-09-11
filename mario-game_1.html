@@ -50,17 +50,17 @@
       pointer-events: auto;
   }
   .touch-btn {
-      width: 15vw;
-      height: 15vw;
-      max-width: 64px;
-      max-height: 64px;
-      min-width: 48px;
-      min-height: 48px;
+      width: 10vw;
+      height: 10vw;
+      max-width: 44px;
+      max-height: 44px;
+      min-width: 34px;
+      min-height: 34px;
       border-radius: 50%;
       border: 2px solid rgba(255,255,255,0.65);
       background: radial-gradient(circle at 30% 30%, #a78bfa, #6d28d9);
       color: #fff;
-      font-size: 22px;
+      font-size: 15px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -72,17 +72,69 @@
       opacity: 0.85;
   }
   .touch-jump {
-      width: 18vw;
-      height: 18vw;
-      max-width: 76px;
-      max-height: 76px;
-      min-width: 56px;
-      min-height: 56px;
-      font-size: 26px;
+      width: 12vw;
+      height: 12vw;
+      max-width: 50px;
+      max-height: 50px;
+      min-width: 40px;
+      min-height: 40px;
+      font-size: 17px;
       background: radial-gradient(circle at 30% 30%, #ffd97a, #b45309);
   }
   @media (hover: hover) and (pointer: fine) {
       .touch-controls { display: none; }
+  }
+  .char-select-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(20, 10, 40, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      z-index: 20;
+  }
+  .char-select-overlay.hidden { display: none; }
+  .char-select-panel {
+      background: linear-gradient(160deg, #4b2f82, #241a4a);
+      border: 2px solid #d9c4ff;
+      border-radius: 14px;
+      padding: 14px 18px;
+      text-align: center;
+      color: #fff;
+      max-width: 88%;
+  }
+  .char-select-panel h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 600;
+  }
+  .char-cards {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+  }
+  .char-card {
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 10px;
+      padding: 6px;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+  }
+  .char-card:hover, .char-card.selected {
+      border-color: #ffd97a;
+      background: rgba(255,255,255,0.18);
+  }
+  .char-preview {
+      background: linear-gradient(180deg, #8fd0ff, #d6f3ff);
+      border-radius: 8px;
   }
 </style>
 </head>
@@ -97,6 +149,21 @@
     </div>
     <button id="btnJump" class="touch-btn touch-jump" aria-label="پرش">⤒</button>
   </div>
+  <div class="char-select-overlay" id="charSelectOverlay">
+    <div class="char-select-panel">
+      <h2>یک کاراکتر رو انتخاب کن</h2>
+      <div class="char-cards">
+        <button class="char-card" data-char="girl" id="cardGirl">
+          <canvas class="char-preview" id="previewGirl" width="70" height="90"></canvas>
+          <span>دخترک</span>
+        </button>
+        <button class="char-card" data-char="boy" id="cardBoy">
+          <canvas class="char-preview" id="previewBoy" width="70" height="90"></canvas>
+          <span>پسرک</span>
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -107,6 +174,7 @@ const gravity = 0.5;
 let score = 0;
 let cameraX = 0;
 let frameCount = 0;
+let selectedCharacter = 'girl';
 
 // تعریف مراحل بازی (هر مرحله طولانی‌تر و سخت‌تر از قبلی)
 const LEVELS = [
@@ -304,6 +372,17 @@ bindTouchButton('btnJump', () => {
     if (gameState === 'won') { startGame(); return; }
     doJump();
 }, () => {});
+
+// انتخاب کاراکتر (دخترک یا پسرک)
+const charSelectOverlay = document.getElementById('charSelectOverlay');
+document.querySelectorAll('.char-card').forEach(card => {
+    card.addEventListener('click', () => {
+        selectedCharacter = card.dataset.char;
+        document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        charSelectOverlay.classList.add('hidden');
+    });
+});
 
 function loadLevel(index) {
     const level = LEVELS[index];
@@ -658,87 +737,185 @@ function drawPlatformDecor(p) {
     }
 }
 
-function drawGirl(x, y, w, h, facing, powered) {
-    const headRadius = w * 0.38;
+// دو کاراکتر قابل انتخاب: دخترک (موی دم‌اسبی) و پسرک (پاپیون)
+const CHARACTERS = {
+    girl: {
+        skin: '#ffd9b3',
+        shirt: '#2f6fed',
+        pants: '#ffffff',
+        drawBackHair(tctx, hx, hy, r, facing) {
+            const dir = facing >= 0 ? -1 : 1;
+            tctx.fillStyle = '#4a2f22';
+            tctx.save();
+            tctx.translate(hx + dir * r * 0.75, hy - r * 0.1);
+            tctx.rotate(dir * 0.5);
+            tctx.beginPath();
+            tctx.ellipse(0, 0, r * 0.28, r * 0.8, 0, 0, Math.PI * 2);
+            tctx.fill();
+            tctx.restore();
+        },
+        drawFrontHair(tctx, hx, hy, r) {
+            tctx.fillStyle = '#4a2f22';
+            tctx.beginPath();
+            tctx.arc(hx, hy, r, Math.PI, 0, false);
+            tctx.fill();
+            tctx.fillRect(hx - r, hy - r * 0.15, r * 2, r * 0.35);
+        },
+        drawAccessory(tctx, hx, hy, r, facing) {
+            const dir = facing >= 0 ? -1 : 1;
+            tctx.fillStyle = '#ff6fb0';
+            tctx.beginPath();
+            tctx.arc(hx + dir * r * 0.15, hy - r * 0.85, r * 0.16, 0, Math.PI * 2);
+            tctx.fill();
+        }
+    },
+    boy: {
+        skin: '#ffdcb0',
+        shirt: '#3ec27a',
+        pants: '#4a4a5a',
+        drawBackHair() {},
+        drawFrontHair(tctx, hx, hy, r) {
+            tctx.fillStyle = '#2b2118';
+            tctx.beginPath();
+            tctx.arc(hx, hy, r * 1.02, Math.PI * 1.05, Math.PI * 1.95, false);
+            tctx.fill();
+            tctx.fillRect(hx - r, hy - r * 0.35, r * 2, r * 0.4);
+        },
+        drawAccessory(tctx, hx, hy, r) {
+            tctx.fillStyle = '#e63946';
+            tctx.beginPath();
+            tctx.moveTo(hx - 6, hy + r * 1.0);
+            tctx.lineTo(hx, hy + r * 0.85);
+            tctx.lineTo(hx - 6, hy + r * 1.2);
+            tctx.closePath();
+            tctx.fill();
+            tctx.beginPath();
+            tctx.moveTo(hx + 6, hy + r * 1.0);
+            tctx.lineTo(hx, hy + r * 0.85);
+            tctx.lineTo(hx + 6, hy + r * 1.2);
+            tctx.closePath();
+            tctx.fill();
+        }
+    }
+};
+
+function drawCharacterBase(targetCtx, x, y, w, h, facing, powered, opts, animate) {
+    const walking = animate && player.grounded && (keys.left || keys.right);
+    const bob = walking ? Math.sin(frameCount * 0.3) * 2.5 : (animate ? Math.sin(frameCount * 0.08) * 1.2 : 0);
+
+    targetCtx.save();
+    targetCtx.translate(0, bob);
+
+    const headRadius = w * 0.4;
     const headCenterX = x + w / 2;
     const headCenterY = y + headRadius + 1;
-    const bodyTop = y + headRadius * 2 - 2;
-    const legsTop = bodyTop + (h - (bodyTop - y)) * 0.5;
-    const skin = '#ffd9b3';
-    const hair = '#4a2f22';
+    const bodyTop = y + headRadius * 1.75;
+    const legsTop = bodyTop + (h - (bodyTop - y)) * 0.48;
+    const skin = opts.skin;
 
-    // دم اسبی (پشت سر، جهت مخالفِ نگاه)
-    const tailDir = facing >= 0 ? -1 : 1;
-    ctx.fillStyle = hair;
-    ctx.save();
-    ctx.translate(headCenterX + tailDir * headRadius * 0.75, headCenterY - headRadius * 0.1);
-    ctx.rotate(tailDir * 0.5);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, headRadius * 0.28, headRadius * 0.75, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    // موی پشت (در صورت وجود)
+    opts.drawBackHair(targetCtx, headCenterX, headCenterY, headRadius, facing);
 
-    // پاها (شلوار سفید)
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#c9c9c9';
-    ctx.lineWidth = 1;
-    ctx.fillRect(x + w * 0.1, legsTop, w * 0.8, y + h - legsTop);
-    ctx.strokeRect(x + w * 0.1, legsTop, w * 0.8, y + h - legsTop);
+    // پاها با کمی تکان راه‌رفتن
+    const legSwing = walking ? Math.sin(frameCount * 0.35) * 3.5 : 0;
+    const legW = w * 0.34;
+    const legH = y + h - legsTop;
+    targetCtx.fillStyle = opts.pants;
+    targetCtx.strokeStyle = 'rgba(0,0,0,0.15)';
+    targetCtx.lineWidth = 1;
+    targetCtx.fillRect(x + w * 0.12, legsTop + legSwing * 0.3, legW, legH);
+    targetCtx.strokeRect(x + w * 0.12, legsTop + legSwing * 0.3, legW, legH);
+    targetCtx.fillRect(x + w * 0.54, legsTop - legSwing * 0.3, legW, legH);
+    targetCtx.strokeRect(x + w * 0.54, legsTop - legSwing * 0.3, legW, legH);
 
-    // دست‌ها (پوست)
-    ctx.fillStyle = skin;
-    ctx.fillRect(x - w * 0.12, bodyTop + 2, w * 0.2, (legsTop - bodyTop) * 0.75);
-    ctx.fillRect(x + w * 0.92, bodyTop + 2, w * 0.2, (legsTop - bodyTop) * 0.75);
+    // دست‌ها
+    targetCtx.fillStyle = skin;
+    targetCtx.fillRect(x - w * 0.14, bodyTop + 2, w * 0.2, (legsTop - bodyTop) * 0.75);
+    targetCtx.fillRect(x + w * 0.94, bodyTop + 2, w * 0.2, (legsTop - bodyTop) * 0.75);
 
-    // تنه (تیشرت آبی)
-    ctx.fillStyle = '#2f6fed';
-    ctx.fillRect(x + w * 0.06, bodyTop, w * 0.88, legsTop - bodyTop);
+    // تنه
+    targetCtx.fillStyle = opts.shirt;
+    targetCtx.fillRect(x + w * 0.04, bodyTop, w * 0.92, legsTop - bodyTop);
 
     // سر
-    ctx.fillStyle = skin;
-    ctx.beginPath();
-    ctx.arc(headCenterX, headCenterY, headRadius, 0, Math.PI * 2);
-    ctx.fill();
+    targetCtx.fillStyle = skin;
+    targetCtx.beginPath();
+    targetCtx.arc(headCenterX, headCenterY, headRadius, 0, Math.PI * 2);
+    targetCtx.fill();
+
+    // گونه‌های صورتی (حس کارتونی)
+    targetCtx.fillStyle = 'rgba(255,140,170,0.5)';
+    targetCtx.beginPath(); targetCtx.arc(headCenterX - headRadius * 0.55, headCenterY + headRadius * 0.25, headRadius * 0.16, 0, Math.PI * 2); targetCtx.fill();
+    targetCtx.beginPath(); targetCtx.arc(headCenterX + headRadius * 0.55, headCenterY + headRadius * 0.25, headRadius * 0.16, 0, Math.PI * 2); targetCtx.fill();
 
     // موی جلو
-    ctx.fillStyle = hair;
-    ctx.beginPath();
-    ctx.arc(headCenterX, headCenterY, headRadius, Math.PI, 0, false);
-    ctx.fill();
-    ctx.fillRect(headCenterX - headRadius, headCenterY - headRadius * 0.15, headRadius * 2, headRadius * 0.35);
+    opts.drawFrontHair(targetCtx, headCenterX, headCenterY, headRadius);
 
-    // تل موی صورتی (لمسه فانتزی)
-    ctx.fillStyle = '#ff6fb0';
-    ctx.beginPath();
-    ctx.arc(headCenterX + tailDir * headRadius * 0.15, headCenterY - headRadius * 0.85, headRadius * 0.16, 0, Math.PI * 2);
-    ctx.fill();
+    // چشم‌های براق بزرگ (با پلک زدن دوره‌ای)
+    const blinking = animate && (frameCount % 220) < 6;
+    [-1, 1].forEach(side => {
+        const ex = headCenterX + side * headRadius * 0.32 + (facing >= 0 ? headRadius * 0.08 : -headRadius * 0.08);
+        const ey = headCenterY + headRadius * 0.05;
+        const eyeR = headRadius * 0.22;
+        if (blinking) {
+            targetCtx.strokeStyle = '#2b1c14';
+            targetCtx.lineWidth = 2;
+            targetCtx.beginPath();
+            targetCtx.moveTo(ex - eyeR * 0.7, ey);
+            targetCtx.lineTo(ex + eyeR * 0.7, ey);
+            targetCtx.stroke();
+        } else {
+            targetCtx.fillStyle = '#2b1c14';
+            targetCtx.beginPath(); targetCtx.arc(ex, ey, eyeR, 0, Math.PI * 2); targetCtx.fill();
+            targetCtx.fillStyle = '#fff';
+            targetCtx.beginPath(); targetCtx.arc(ex - eyeR * 0.3, ey - eyeR * 0.3, eyeR * 0.35, 0, Math.PI * 2); targetCtx.fill();
+        }
+    });
 
-    // چشم
-    const eyeOffsetX = facing >= 0 ? headRadius * 0.22 : -headRadius * 0.22;
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.arc(headCenterX + eyeOffsetX, headCenterY + headRadius * 0.15, headRadius * 0.11, 0, Math.PI * 2);
-    ctx.fill();
+    // لبخند کوچک
+    targetCtx.strokeStyle = '#a15c3a';
+    targetCtx.lineWidth = 1.5;
+    targetCtx.beginPath();
+    targetCtx.arc(headCenterX, headCenterY + headRadius * 0.45, headRadius * 0.22, 0.15 * Math.PI, 0.85 * Math.PI);
+    targetCtx.stroke();
+
+    opts.drawAccessory(targetCtx, headCenterX, headCenterY, headRadius, facing);
 
     // چکش (وقتی قوی شده)
     if (powered) {
         const hx = facing >= 0 ? x + w * 0.95 : x - w * 0.55;
         const hy = bodyTop + (legsTop - bodyTop) * 0.35;
-        ctx.strokeStyle = '#8a5a2b';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(hx, hy + 10);
-        ctx.lineTo(hx + (facing >= 0 ? w * 0.35 : -w * 0.35), hy - w * 0.4);
-        ctx.stroke();
-        ctx.fillStyle = '#8d8d8d';
-        ctx.fillRect(
+        targetCtx.strokeStyle = '#8a5a2b';
+        targetCtx.lineWidth = 4;
+        targetCtx.beginPath();
+        targetCtx.moveTo(hx, hy + 10);
+        targetCtx.lineTo(hx + (facing >= 0 ? w * 0.35 : -w * 0.35), hy - w * 0.4);
+        targetCtx.stroke();
+        targetCtx.fillStyle = '#8d8d8d';
+        targetCtx.fillRect(
             hx + (facing >= 0 ? w * 0.22 : -w * 0.58),
             hy - w * 0.62,
             w * 0.36,
             h * 0.18
         );
     }
+
+    targetCtx.restore();
 }
+
+function drawPlayerCharacter(targetCtx, x, y, w, h, facing, powered, charKey, animate) {
+    drawCharacterBase(targetCtx, x, y, w, h, facing, powered, CHARACTERS[charKey], animate);
+}
+
+function drawPreview(id, charKey) {
+    const c = document.getElementById(id);
+    const pctx = c.getContext('2d');
+    pctx.clearRect(0, 0, c.width, c.height);
+    drawPlayerCharacter(pctx, c.width * 0.22, 12, c.width * 0.56, c.height * 0.72, 1, false, charKey, false);
+}
+
+drawPreview('previewGirl', 'girl');
+drawPreview('previewBoy', 'boy');
 
 function drawCrab(x, y, w, h) {
     const body = '#ff7a72';
@@ -923,8 +1100,8 @@ function draw() {
         drawCrab(enemy.x - cameraX, enemy.y, enemy.width, enemy.height);
     });
 
-    // رسم بازیکن (دخترک)
-    drawGirl(player.x - cameraX, player.y, player.width, player.height, player.facing, player.powered);
+    // رسم بازیکن (کاراکتر انتخاب‌شده)
+    drawPlayerCharacter(ctx, player.x - cameraX, player.y, player.width, player.height, player.facing, player.powered, selectedCharacter, true);
 
     // نمایش امتیاز و شماره مرحله
     ctx.fillStyle = '#FFF';
