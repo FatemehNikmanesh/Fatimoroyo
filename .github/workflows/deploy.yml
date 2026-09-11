@@ -20,4 +20,4 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           password: ${{ secrets.SSH_PASSWORD }}
           source: "mario-game_1.html"
-          target: "/home/p12/fatilda"
+          target: ${{ secrets.DEPLOY_PATH }}
