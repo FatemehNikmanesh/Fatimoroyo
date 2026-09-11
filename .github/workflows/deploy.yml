@@ -12,6 +12,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Inject Supabase key
+        run: |
+          sed -i "s|__SUPABASE_KEY__|${{ secrets.SUPABASE }}|g" mario-game_1.html
+
       - name: Deploy via SSH (scp)
         uses: appleboy/scp-action@v0.1.7
         with:
