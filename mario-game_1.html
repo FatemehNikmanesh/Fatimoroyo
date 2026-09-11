@@ -375,13 +375,67 @@ function playTone(freq, duration, type = 'square', startGain = 0.15, delay = 0) 
 }
 const sfx = {
     jump: () => playTone(520, 0.12, 'square', 0.12),
+    land: () => playTone(150, 0.07, 'sine', 0.09),
     coin: () => { playTone(880, 0.08, 'square', 0.12); playTone(1320, 0.1, 'square', 0.1, 0.06); },
     power: () => { playTone(300, 0.1, 'sawtooth', 0.12); playTone(500, 0.1, 'sawtooth', 0.12, 0.1); playTone(700, 0.15, 'sawtooth', 0.12, 0.2); },
     stomp: () => playTone(180, 0.15, 'sawtooth', 0.15),
     hurt: () => { playTone(220, 0.1, 'sawtooth', 0.15); playTone(140, 0.18, 'sawtooth', 0.15, 0.1); },
     levelComplete: () => { [523, 659, 784, 1046].forEach((f, i) => playTone(f, 0.16, 'square', 0.12, i * 0.11)); },
-    victory: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => playTone(f, 0.22, 'square', 0.13, i * 0.14)); }
+    victory: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => playTone(f, 0.22, 'square', 0.13, i * 0.14)); },
+    uiClick: () => playTone(600, 0.05, 'square', 0.07)
 };
+
+// --- موزیک پس‌زمینه (ملودی چیپ‌تیون ساده و تکرارشونده، بدون فایل خارجی) ---
+const MUSIC_TEMPO = 132; // ضربه در دقیقه
+const MUSIC_NOTE_DURATION = 60 / MUSIC_TEMPO / 2; // طول هر نت (نیم‌ضرب)
+// ملودی شاد و فانتزی که در حلقه تکرار می‌شود (هرتز؛ 0 یعنی سکوت)
+const MUSIC_MELODY = [
+    523, 0, 659, 0, 784, 659, 523, 0,
+    587, 0, 698, 0, 880, 698, 587, 0,
+    523, 659, 784, 880, 784, 659, 523, 0,
+    494, 0, 587, 0, 659, 587, 494, 0
+];
+let musicGain = null;
+let musicStarted = false;
+let nextNoteTime = 0;
+let noteIndex = 0;
+
+function scheduleMusic() {
+    const ac = getAudioCtx();
+    if (!ac || !musicGain) return;
+    while (nextNoteTime < ac.currentTime + 0.2) {
+        const freq = MUSIC_MELODY[noteIndex % MUSIC_MELODY.length];
+        if (freq > 0) {
+            const osc = ac.createOscillator();
+            const noteGain = ac.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = freq;
+            noteGain.gain.setValueAtTime(0.0001, nextNoteTime);
+            noteGain.gain.exponentialRampToValueAtTime(1, nextNoteTime + 0.02);
+            noteGain.gain.exponentialRampToValueAtTime(0.0001, nextNoteTime + MUSIC_NOTE_DURATION * 0.95);
+            osc.connect(noteGain);
+            noteGain.connect(musicGain);
+            osc.start(nextNoteTime);
+            osc.stop(nextNoteTime + MUSIC_NOTE_DURATION);
+        }
+        nextNoteTime += MUSIC_NOTE_DURATION;
+        noteIndex++;
+    }
+    setTimeout(scheduleMusic, 100);
+}
+
+function startMusic() {
+    if (musicStarted) return;
+    const ac = getAudioCtx();
+    if (!ac) return;
+    musicStarted = true;
+    musicGain = ac.createGain();
+    musicGain.gain.value = muted ? 0 : 0.05;
+    musicGain.connect(ac.destination);
+    nextNoteTime = ac.currentTime + 0.1;
+    noteIndex = 0;
+    scheduleMusic();
+}
 
 // --- جدول امتیازها (Leaderboard) با Supabase ---
 // SUPABASE_URL محرمانه نیست (فقط آدرس پروژه است) و مستقیم اینجا قرار می‌گیرد.
@@ -656,6 +710,7 @@ let transitionTimer = 0;
 let transitionMessage = '';
 
 const keys = { right: false, left: false };
+let wasGrounded = true;
 
 function doJump() {
     if (player.grounded) {
@@ -711,10 +766,13 @@ document.getElementById('btnStartGame').addEventListener('click', () => {
     playerName = (playerNameInput.value || '').trim().slice(0, 20) || 'بازیکن ناشناس';
     saveLS('advGirlPlayerName', playerName);
     getAudioCtx();
+    startMusic();
+    sfx.uiClick();
     startScreen.classList.add('hidden');
     charSelectOverlay.classList.remove('hidden');
 });
 document.getElementById('btnPlayAgain').addEventListener('click', () => {
+    sfx.uiClick();
     winOverlay.classList.add('hidden');
     startGame();
 });
@@ -726,6 +784,7 @@ document.querySelectorAll('.char-card').forEach(card => {
         selectedCharacter = card.dataset.char;
         document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
+        sfx.uiClick();
         charSelectOverlay.classList.add('hidden');
         startGame();
     });
@@ -741,9 +800,10 @@ btnMute.addEventListener('click', () => {
     btnMute.textContent = muted ? '🔇' : '🔊';
     btnMute.setAttribute('aria-pressed', String(muted));
     if (!muted) { getAudioCtx(); }
+    if (musicGain) musicGain.gain.value = muted ? 0 : 0.05;
 });
 
-document.getElementById('btnRestart').addEventListener('click', () => startGame());
+document.getElementById('btnRestart').addEventListener('click', () => { sfx.uiClick(); startGame(); });
 
 function loadLevel(index) {
     const level = LEVELS[index];
@@ -766,6 +826,7 @@ function loadLevel(index) {
     player.dy = 0;
     player.powered = false;
     cameraX = 0;
+    wasGrounded = true;
 }
 
 function resetLevel() {
@@ -902,6 +963,7 @@ function update() {
     if (player.x + player.width > levelWidth) player.x = levelWidth - player.width;
 
     // برخورد بازیکن با سکوها و آجرها (از بالا، مثل ایستادن روی سکو)
+    const fallSpeedBeforeLanding = player.dy;
     player.grounded = false;
     solids.forEach(platform => {
         if (
@@ -915,6 +977,10 @@ function update() {
             player.grounded = true;
         }
     });
+    if (player.grounded && !wasGrounded && fallSpeedBeforeLanding > 4) {
+        sfx.land();
+    }
+    wasGrounded = player.grounded;
 
     // برخورد بازیکن با زیرِ آجرها (ضربه از پایین)
     checkBrickHits();
