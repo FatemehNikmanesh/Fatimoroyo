@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>بازی ماریو ساده با سکه و دشمن</title>
+<title>بازی دخترک ماجراجو</title>
 <style>
   body {
       margin: 0;
@@ -33,94 +33,152 @@ const ctx = canvas.getContext('2d');
 
 const gravity = 0.5;
 let score = 0;
+let cameraX = 0;
 
-// تعریف مراحل بازی
+// تعریف مراحل بازی (هر مرحله طولانی‌تر و سخت‌تر از قبلی)
 const LEVELS = [
     {
+        width: 1300,
         playerStart: { x: 50, y: 300 },
         platforms: [
-            { x: 0, y: 360, width: 800, height: 40, color: '#4e9221' },
+            { x: 0, y: 360, width: 480, height: 40, color: '#4e9221' },
+            { x: 590, y: 360, width: 710, height: 40, color: '#4e9221' },
             { x: 200, y: 270, width: 120, height: 20, color: '#b84418' },
             { x: 400, y: 200, width: 120, height: 20, color: '#b84418' },
-            { x: 550, y: 280, width: 100, height: 20, color: '#b84418' }
+            { x: 550, y: 280, width: 100, height: 20, color: '#b84418' },
+            { x: 750, y: 300, width: 100, height: 20, color: '#b84418' },
+            { x: 1000, y: 280, width: 150, height: 20, color: '#b84418' }
+        ],
+        bricks: [
+            { x: 900, y: 230, width: 40, height: 40, hasMushroom: true }
         ],
         coins: [
             { x: 245, y: 230 },
             { x: 450, y: 160 },
-            { x: 590, y: 240 }
+            { x: 590, y: 240 },
+            { x: 800, y: 270 },
+            { x: 1060, y: 240 }
         ],
         enemies: [
-            { x: 600, y: 330, minX: 400, maxX: 750, speed: 2, direction: -1 }
+            { x: 650, y: 330, minX: 600, maxX: 780, speed: 1.6, direction: -1 },
+            { x: 1100, y: 330, minX: 1030, maxX: 1200, speed: 1.8, direction: -1 }
         ],
-        goal: { x: 755, y: 280, width: 26, height: 80 }
+        goal: { x: 1250, y: 280, width: 26, height: 80 }
     },
     {
+        width: 1700,
         playerStart: { x: 50, y: 300 },
         platforms: [
-            { x: 0, y: 360, width: 800, height: 40, color: '#4e9221' },
+            { x: 0, y: 360, width: 380, height: 40, color: '#4e9221' },
+            { x: 480, y: 360, width: 320, height: 40, color: '#4e9221' },
+            { x: 900, y: 360, width: 350, height: 40, color: '#4e9221' },
+            { x: 1350, y: 360, width: 350, height: 40, color: '#4e9221' },
             { x: 150, y: 300, width: 100, height: 20, color: '#b84418' },
             { x: 320, y: 250, width: 100, height: 20, color: '#b84418' },
-            { x: 480, y: 190, width: 100, height: 20, color: '#b84418' },
-            { x: 630, y: 250, width: 120, height: 20, color: '#b84418' }
+            { x: 500, y: 280, width: 90, height: 20, color: '#b84418' },
+            { x: 650, y: 210, width: 90, height: 20, color: '#b84418' },
+            { x: 800, y: 280, width: 90, height: 20, color: '#b84418' },
+            { x: 960, y: 300, width: 100, height: 20, color: '#b84418' },
+            { x: 1120, y: 240, width: 100, height: 20, color: '#b84418' },
+            { x: 1280, y: 300, width: 90, height: 20, color: '#b84418' },
+            { x: 1450, y: 260, width: 120, height: 20, color: '#b84418' }
+        ],
+        bricks: [
+            { x: 660, y: 150, width: 40, height: 40, hasMushroom: true },
+            { x: 1130, y: 190, width: 40, height: 40, hasMushroom: false }
         ],
         coins: [
             { x: 200, y: 260 },
             { x: 370, y: 210 },
-            { x: 530, y: 150 },
-            { x: 690, y: 210 }
+            { x: 545, y: 240 },
+            { x: 845, y: 240 },
+            { x: 1010, y: 260 },
+            { x: 1170, y: 200 },
+            { x: 1500, y: 220 }
         ],
         enemies: [
-            { x: 350, y: 330, minX: 150, maxX: 400, speed: 2.5, direction: 1 },
-            { x: 700, y: 220, minX: 630, maxX: 740, speed: 2, direction: -1 }
+            { x: 550, y: 330, minX: 480, maxX: 780, speed: 2.2, direction: 1 },
+            { x: 950, y: 330, minX: 900, maxX: 1230, speed: 2.4, direction: 1 },
+            { x: 1400, y: 330, minX: 1350, maxX: 1650, speed: 2.6, direction: -1 }
         ],
-        goal: { x: 755, y: 280, width: 26, height: 80 }
+        goal: { x: 1650, y: 280, width: 26, height: 80 }
     },
     {
+        width: 2100,
         playerStart: { x: 50, y: 300 },
         platforms: [
-            { x: 0, y: 360, width: 800, height: 40, color: '#4e9221' },
-            { x: 130, y: 310, width: 90, height: 20, color: '#b84418' },
-            { x: 260, y: 260, width: 90, height: 20, color: '#b84418' },
+            { x: 0, y: 360, width: 300, height: 40, color: '#4e9221' },
+            { x: 390, y: 360, width: 260, height: 40, color: '#4e9221' },
+            { x: 740, y: 360, width: 260, height: 40, color: '#4e9221' },
+            { x: 1090, y: 360, width: 260, height: 40, color: '#4e9221' },
+            { x: 1440, y: 360, width: 260, height: 40, color: '#4e9221' },
+            { x: 1790, y: 360, width: 310, height: 40, color: '#4e9221' },
+            { x: 120, y: 300, width: 90, height: 20, color: '#b84418' },
+            { x: 260, y: 240, width: 90, height: 20, color: '#b84418' },
             { x: 260, y: 150, width: 90, height: 20, color: '#b84418' },
-            { x: 420, y: 200, width: 90, height: 20, color: '#b84418' },
-            { x: 560, y: 260, width: 90, height: 20, color: '#b84418' },
-            { x: 690, y: 190, width: 90, height: 20, color: '#b84418' }
+            { x: 430, y: 260, width: 90, height: 20, color: '#b84418' },
+            { x: 590, y: 200, width: 90, height: 20, color: '#b84418' },
+            { x: 780, y: 260, width: 90, height: 20, color: '#b84418' },
+            { x: 900, y: 180, width: 90, height: 20, color: '#b84418' },
+            { x: 1090, y: 280, width: 90, height: 20, color: '#b84418' },
+            { x: 1230, y: 210, width: 90, height: 20, color: '#b84418' },
+            { x: 1440, y: 260, width: 90, height: 20, color: '#b84418' },
+            { x: 1590, y: 180, width: 90, height: 20, color: '#b84418' },
+            { x: 1790, y: 280, width: 90, height: 20, color: '#b84418' },
+            { x: 1930, y: 210, width: 90, height: 20, color: '#b84418' }
+        ],
+        bricks: [
+            { x: 300, y: 100, width: 40, height: 40, hasMushroom: true },
+            { x: 940, y: 130, width: 40, height: 40, hasMushroom: false },
+            { x: 1630, y: 130, width: 40, height: 40, hasMushroom: false }
         ],
         coins: [
-            { x: 175, y: 270 },
-            { x: 305, y: 220 },
+            { x: 165, y: 260 },
+            { x: 305, y: 200 },
             { x: 305, y: 110 },
-            { x: 465, y: 160 },
-            { x: 605, y: 220 }
+            { x: 475, y: 220 },
+            { x: 635, y: 160 },
+            { x: 825, y: 220 },
+            { x: 1135, y: 240 },
+            { x: 1275, y: 170 },
+            { x: 1485, y: 220 },
+            { x: 1635, y: 140 },
+            { x: 1975, y: 170 }
         ],
         enemies: [
-            { x: 300, y: 330, minX: 130, maxX: 350, speed: 3, direction: 1 },
-            { x: 500, y: 330, minX: 420, maxX: 650, speed: 2.5, direction: -1 },
-            { x: 720, y: 150, minX: 690, maxX: 770, speed: 2, direction: -1 }
+            { x: 450, y: 330, minX: 390, maxX: 640, speed: 2.6, direction: 1 },
+            { x: 800, y: 330, minX: 740, maxX: 990, speed: 2.8, direction: 1 },
+            { x: 1150, y: 330, minX: 1090, maxX: 1340, speed: 3, direction: -1 },
+            { x: 1500, y: 330, minX: 1440, maxX: 1690, speed: 3.2, direction: -1 },
+            { x: 1850, y: 330, minX: 1790, maxX: 2080, speed: 3, direction: 1 }
         ],
-        goal: { x: 730, y: 110, width: 26, height: 80 }
+        goal: { x: 2040, y: 280, width: 26, height: 80 }
     }
 ];
 
-// بازیکن
+// بازیکن (دختر با تیشرت آبی و شلوار سفید و موی دم‌اسبی)
 const player = {
     x: 50,
     y: 300,
     width: 30,
     height: 40,
-    color: '#e52521',
     dx: 0,
     dy: 0,
     speed: 5,
     jumpPower: -12,
     grounded: false,
-    facing: 1
+    facing: 1,
+    powered: false // بعد از خوردن قارچ، چکش دستش میاد
 };
 
 let currentLevelIndex = 0;
+let levelWidth = 800;
 let platforms = [];
+let bricks = [];
+let solids = [];
 let coins = [];
 let enemies = [];
+let powerups = [];
 let goal = null;
 
 // gameState: 'playing' | 'transition' | 'won'
@@ -149,18 +207,24 @@ document.addEventListener('keyup', (e) => {
 
 function loadLevel(index) {
     const level = LEVELS[index];
+    levelWidth = level.width;
     platforms = level.platforms;
+    bricks = level.bricks.map(b => ({ ...b, hit: false }));
+    solids = [...platforms, ...bricks];
     coins = level.coins.map(c => ({ x: c.x, y: c.y, radius: 8, collected: false }));
     enemies = level.enemies.map(e => ({
-        x: e.x, y: e.y, width: 30, height: 30, color: '#795548',
-        minX: e.minX, maxX: e.maxX, speed: e.speed, direction: e.direction
+        x: e.x, y: e.y, width: 34, height: 24,
+        minX: e.minX, maxX: e.maxX, speed: e.speed, direction: e.direction, dead: false
     }));
+    powerups = [];
     goal = level.goal;
 
     player.x = level.playerStart.x;
     player.y = level.playerStart.y;
     player.dx = 0;
     player.dy = 0;
+    player.powered = false;
+    cameraX = 0;
 }
 
 function resetLevel() {
@@ -173,6 +237,65 @@ function startGame() {
     currentLevelIndex = 0;
     gameState = 'playing';
     loadLevel(currentLevelIndex);
+}
+
+function checkBrickHits() {
+    bricks.forEach(brick => {
+        const withinX = player.x < brick.x + brick.width && player.x + player.width > brick.x;
+        const brickBottom = brick.y + brick.height;
+        const prevHeadY = player.y - player.dy;
+
+        if (player.dy < 0 && withinX && player.y <= brickBottom && prevHeadY > brickBottom) {
+            player.dy = 0;
+            player.y = brickBottom;
+
+            if (!brick.hit) {
+                brick.hit = true;
+                if (brick.hasMushroom) {
+                    powerups.push({
+                        x: brick.x + brick.width / 2 - 12,
+                        y: brick.y - 24,
+                        width: 24,
+                        height: 24,
+                        dx: 1.5,
+                        dy: 0,
+                        spawnTimer: 20,
+                        collected: false
+                    });
+                }
+            }
+        }
+    });
+}
+
+function updatePowerups() {
+    powerups.forEach(p => {
+        if (p.spawnTimer > 0) {
+            p.spawnTimer--;
+            return;
+        }
+        p.dy += gravity;
+        p.x += p.dx;
+        p.y += p.dy;
+
+        solids.forEach(s => {
+            if (
+                p.x < s.x + s.width &&
+                p.x + p.width > s.x &&
+                p.y + p.height <= s.y + p.dy &&
+                p.y + p.height + p.dy >= s.y
+            ) {
+                p.dy = 0;
+                p.y = s.y - p.height;
+            }
+        });
+
+        if (p.x < 0 || p.x + p.width > levelWidth) {
+            p.dx *= -1;
+        }
+    });
+
+    powerups = powerups.filter(p => !p.collected && p.y < canvas.height + 60);
 }
 
 function update() {
@@ -208,11 +331,11 @@ function update() {
     player.y += player.dy;
 
     if (player.x < 0) player.x = 0;
-    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+    if (player.x + player.width > levelWidth) player.x = levelWidth - player.width;
 
-    // برخورد بازیکن با سکوها
+    // برخورد بازیکن با سکوها و آجرها (از بالا، مثل ایستادن روی سکو)
     player.grounded = false;
-    platforms.forEach(platform => {
+    solids.forEach(platform => {
         if (
             player.x < platform.x + platform.width &&
             player.x + player.width > platform.x &&
@@ -225,18 +348,24 @@ function update() {
         }
     });
 
+    // برخورد بازیکن با زیرِ آجرها (ضربه از پایین)
+    checkBrickHits();
+
     // اگر از پایین صفحه بیفتد، مرحله از نو شروع شود
     if (player.y > canvas.height) {
         resetLevel();
     }
 
-    // حرکت دشمن‌ها و چرخش بین مرزهای هر کدام
+    // حرکت خرچنگ‌ها و چرخش بین مرزهای هر کدام
     enemies.forEach(enemy => {
+        if (enemy.dead) return;
         enemy.x += enemy.speed * enemy.direction;
         if (enemy.x <= enemy.minX || enemy.x + enemy.width >= enemy.maxX) {
             enemy.direction *= -1;
         }
     });
+
+    updatePowerups();
 
     // برخورد بازیکن با سکه‌ها
     coins.forEach(coin => {
@@ -252,15 +381,37 @@ function update() {
         }
     });
 
-    // برخورد بازیکن با دشمن‌ها (باختن مرحله)
+    // برخورد بازیکن با قارچ قدرت (قوی شدن و گرفتن چکش)
+    powerups.forEach(p => {
+        if (p.collected || p.spawnTimer > 0) return;
+        if (
+            player.x < p.x + p.width &&
+            player.x + player.width > p.x &&
+            player.y < p.y + p.height &&
+            player.y + player.height > p.y
+        ) {
+            p.collected = true;
+            player.powered = true;
+            score += 50;
+        }
+    });
+
+    // برخورد بازیکن با خرچنگ‌ها
     enemies.forEach(enemy => {
+        if (enemy.dead) return;
         if (
             player.x < enemy.x + enemy.width &&
             player.x + player.width > enemy.x &&
             player.y < enemy.y + enemy.height &&
             player.y + player.height > enemy.y
         ) {
-            resetLevel();
+            if (player.powered) {
+                // با چکش خرچنگ رو له می‌کنه
+                enemy.dead = true;
+                score += 20;
+            } else {
+                resetLevel();
+            }
         }
     });
 
@@ -279,58 +430,165 @@ function update() {
             : 'آخرین مرحله کامل شد! 🏆';
     }
 
+    // دوربین دنبال بازیکن حرکت می‌کند تا مرحله طولانی‌تر دیده شود
+    const maxCamera = Math.max(0, levelWidth - canvas.width);
+    cameraX = Math.max(0, Math.min(player.x + player.width / 2 - canvas.width / 2, maxCamera));
+
     draw();
     requestAnimationFrame(update);
 }
 
-function drawMushroom(x, y, w, h, facing) {
-    const capHeight = h * 0.55;
-    const stemHeight = h - capHeight;
-    const cx = x + w / 2;
+function drawGirl(x, y, w, h, facing, powered) {
+    const headRadius = w * 0.38;
+    const headCenterX = x + w / 2;
+    const headCenterY = y + headRadius + 1;
+    const bodyTop = y + headRadius * 2 - 2;
+    const legsTop = bodyTop + (h - (bodyTop - y)) * 0.5;
+    const skin = '#ffd9b3';
+    const hair = '#4a2f22';
 
-    // ساقه (پایه کرم‌رنگ)
-    const stemWidth = w * 0.6;
-    ctx.fillStyle = '#f4e4c1';
-    ctx.fillRect(cx - stemWidth / 2, y + capHeight, stemWidth, stemHeight);
-    ctx.strokeStyle = '#c9a876';
+    // دم اسبی (پشت سر، جهت مخالفِ نگاه)
+    const tailDir = facing >= 0 ? -1 : 1;
+    ctx.fillStyle = hair;
+    ctx.save();
+    ctx.translate(headCenterX + tailDir * headRadius * 0.75, headCenterY - headRadius * 0.1);
+    ctx.rotate(tailDir * 0.5);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, headRadius * 0.28, headRadius * 0.75, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // پاها (شلوار سفید)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#c9c9c9';
     ctx.lineWidth = 1;
-    ctx.strokeRect(cx - stemWidth / 2, y + capHeight, stemWidth, stemHeight);
+    ctx.fillRect(x + w * 0.1, legsTop, w * 0.8, y + h - legsTop);
+    ctx.strokeRect(x + w * 0.1, legsTop, w * 0.8, y + h - legsTop);
 
-    // کلاهک (نیم‌دایره قرمز)
-    ctx.fillStyle = '#e52521';
+    // دست‌ها (پوست)
+    ctx.fillStyle = skin;
+    ctx.fillRect(x - w * 0.12, bodyTop + 2, w * 0.2, (legsTop - bodyTop) * 0.75);
+    ctx.fillRect(x + w * 0.92, bodyTop + 2, w * 0.2, (legsTop - bodyTop) * 0.75);
+
+    // تنه (تیشرت آبی)
+    ctx.fillStyle = '#2f6fed';
+    ctx.fillRect(x + w * 0.06, bodyTop, w * 0.88, legsTop - bodyTop);
+
+    // سر
+    ctx.fillStyle = skin;
     ctx.beginPath();
-    ctx.moveTo(x, y + capHeight);
-    ctx.arc(cx, y + capHeight, w / 2, Math.PI, 0, false);
-    ctx.lineTo(x + w, y + capHeight);
-    ctx.closePath();
+    ctx.arc(headCenterX, headCenterY, headRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // لبه سفید زیر کلاهک
-    ctx.fillStyle = '#f4e4c1';
-    ctx.fillRect(x, y + capHeight - 3, w, 4);
+    // موی جلو
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    ctx.arc(headCenterX, headCenterY, headRadius, Math.PI, 0, false);
+    ctx.fill();
+    ctx.fillRect(headCenterX - headRadius, headCenterY - headRadius * 0.15, headRadius * 2, headRadius * 0.35);
 
-    // خال‌های سفید روی کلاهک
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(cx - w * 0.22, y + capHeight * 0.45, w * 0.13, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx + w * 0.22, y + capHeight * 0.4, w * 0.11, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx, y + capHeight * 0.78, w * 0.09, 0, Math.PI * 2);
-    ctx.fill();
-
-    // چشم‌ها روی ساقه (جهت نگاه بر اساس حرکت)
-    const eyeY = y + capHeight + stemHeight * 0.35;
-    const eyeOffsetX = facing >= 0 ? w * 0.08 : -w * 0.08;
+    // چشم
+    const eyeOffsetX = facing >= 0 ? headRadius * 0.22 : -headRadius * 0.22;
     ctx.fillStyle = '#000';
     ctx.beginPath();
-    ctx.arc(cx - w * 0.15 + eyeOffsetX, eyeY, w * 0.05, 0, Math.PI * 2);
+    ctx.arc(headCenterX + eyeOffsetX, headCenterY + headRadius * 0.15, headRadius * 0.11, 0, Math.PI * 2);
+    ctx.fill();
+
+    // چکش (وقتی قوی شده)
+    if (powered) {
+        const hx = facing >= 0 ? x + w * 0.95 : x - w * 0.55;
+        const hy = bodyTop + (legsTop - bodyTop) * 0.35;
+        ctx.strokeStyle = '#8a5a2b';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(hx, hy + 10);
+        ctx.lineTo(hx + (facing >= 0 ? w * 0.35 : -w * 0.35), hy - w * 0.4);
+        ctx.stroke();
+        ctx.fillStyle = '#8d8d8d';
+        ctx.fillRect(
+            hx + (facing >= 0 ? w * 0.22 : -w * 0.58),
+            hy - w * 0.62,
+            w * 0.36,
+            h * 0.18
+        );
+    }
+}
+
+function drawCrab(x, y, w, h) {
+    const body = '#d9534f';
+    const dark = '#7a2e2b';
+
+    // پاها
+    ctx.strokeStyle = body;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+        const legY = y + h * 0.55 + i * 3;
+        ctx.beginPath(); ctx.moveTo(x + 2, legY); ctx.lineTo(x - 5, legY + 6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + w - 2, legY); ctx.lineTo(x + w + 5, legY + 6); ctx.stroke();
+    }
+
+    // چشم روی ساقه
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x + w * 0.35, y + h * 0.35); ctx.lineTo(x + w * 0.3, y + h * 0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + w * 0.65, y + h * 0.35); ctx.lineTo(x + w * 0.7, y + h * 0.05); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(x + w * 0.3, y + h * 0.05, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w * 0.7, y + h * 0.05, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(x + w * 0.3, y + h * 0.05, 1.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w * 0.7, y + h * 0.05, 1.4, 0, Math.PI * 2); ctx.fill();
+
+    // چنگال‌ها
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.ellipse(x - w * 0.12, y + h * 0.4, w * 0.2, h * 0.2, -0.3, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(cx + w * 0.15 + eyeOffsetX, eyeY, w * 0.05, 0, Math.PI * 2);
+    ctx.ellipse(x + w * 1.12, y + h * 0.4, w * 0.2, h * 0.2, 0.3, 0, Math.PI * 2);
     ctx.fill();
+
+    // بدن
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h * 0.6, w / 2, h * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawMushroomPowerup(x, y, w, h) {
+    ctx.fillStyle = '#e52521';
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h * 0.42, w / 2, Math.PI, 0, false);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x, y + h * 0.36, w, h * 0.14);
+    ctx.fillStyle = '#f4e4c1';
+    ctx.fillRect(x + w * 0.2, y + h * 0.5, w * 0.6, h * 0.5);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(x + w * 0.3, y + h * 0.15, w * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w * 0.7, y + h * 0.15, w * 0.1, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawBrick(brick) {
+    const sx = brick.x - cameraX;
+    if (brick.hit) {
+        ctx.fillStyle = '#a9a9a9';
+        ctx.fillRect(sx, brick.y, brick.width, brick.height);
+        ctx.strokeStyle = '#8f8f8f';
+        ctx.strokeRect(sx, brick.y, brick.width, brick.height);
+        return;
+    }
+    ctx.fillStyle = '#b5651d';
+    ctx.fillRect(sx, brick.y, brick.width, brick.height);
+    ctx.strokeStyle = '#7a4413';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(sx, brick.y, brick.width, brick.height);
+    if (brick.hasMushroom) {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('؟', sx + brick.width / 2, brick.y + brick.height * 0.7);
+        ctx.textAlign = 'left';
+    }
 }
 
 function draw() {
@@ -339,41 +597,50 @@ function draw() {
     // رسم سکوها
     platforms.forEach(p => {
         ctx.fillStyle = p.color;
-        ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.fillRect(p.x - cameraX, p.y, p.width, p.height);
     });
+
+    // رسم آجرهای قابل‌ضربه
+    bricks.forEach(b => drawBrick(b));
 
     // رسم سکه‌ها
     coins.forEach(c => {
         if (!c.collected) {
             ctx.beginPath();
-            ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#FFD700'; // طلایی
+            ctx.arc(c.x - cameraX, c.y, c.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD700';
             ctx.fill();
             ctx.closePath();
         }
     });
 
+    // رسم قارچ قدرت
+    powerups.forEach(p => {
+        if (p.collected) return;
+        drawMushroomPowerup(p.x - cameraX, p.y, p.width, p.height);
+    });
+
     // رسم پرچم پایان مرحله
     if (goal) {
         ctx.fillStyle = '#ccc';
-        ctx.fillRect(goal.x + goal.width / 2 - 2, goal.y, 4, goal.height);
+        ctx.fillRect(goal.x - cameraX + goal.width / 2 - 2, goal.y, 4, goal.height);
         ctx.fillStyle = '#FFD700';
         ctx.beginPath();
-        ctx.moveTo(goal.x + goal.width / 2 + 2, goal.y + 6);
-        ctx.lineTo(goal.x + goal.width, goal.y + 16);
-        ctx.lineTo(goal.x + goal.width / 2 + 2, goal.y + 26);
+        ctx.moveTo(goal.x - cameraX + goal.width / 2 + 2, goal.y + 6);
+        ctx.lineTo(goal.x - cameraX + goal.width, goal.y + 16);
+        ctx.lineTo(goal.x - cameraX + goal.width / 2 + 2, goal.y + 26);
         ctx.closePath();
         ctx.fill();
     }
 
-    // رسم دشمن‌ها
+    // رسم خرچنگ‌ها
     enemies.forEach(enemy => {
-        ctx.fillStyle = enemy.color;
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+        if (enemy.dead) return;
+        drawCrab(enemy.x - cameraX, enemy.y, enemy.width, enemy.height);
     });
 
-    // رسم بازیکن به شکل قارچ
-    drawMushroom(player.x, player.y, player.width, player.height, player.facing);
+    // رسم بازیکن (دخترک)
+    drawGirl(player.x - cameraX, player.y, player.width, player.height, player.facing, player.powered);
 
     // نمایش امتیاز و شماره مرحله
     ctx.fillStyle = '#FFF';
@@ -381,6 +648,9 @@ function draw() {
     ctx.textAlign = 'left';
     ctx.fillText(`امتیاز: ${score}`, 20, 30);
     ctx.fillText(`مرحله ${currentLevelIndex + 1} از ${LEVELS.length}`, 20, 55);
+    if (player.powered) {
+        ctx.fillText('چکش همراهته! خرچنگ‌ها رو له کن 🔨', 20, 80);
+    }
 
     // پیام بین مرحله‌ای
     if (gameState === 'transition') {
