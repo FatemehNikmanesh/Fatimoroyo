@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بازی ماریو ساده با سکه و دشمن</title>
+<style>
+  body {
+      margin: 0;
+      padding: 0;
+      background-color: #222;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: sans-serif;
+  }
+  canvas {
+      border: 4px solid #fff;
+      background-color: #5c94fc;
+      max-width: 100%;
+      height: auto;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const gravity = 0.5;
+let score = 0;
+
+// تعریف مراحل بازی
+const LEVELS = [
+    {
+        playerStart: { x: 50, y: 300 },
+        platforms: [
+            { x: 0, y: 360, width: 800, height: 40, color: '#4e9221' },
+            { x: 200, y: 270, width: 120, height: 20, color: '#b84418' },
+            { x: 400, y: 200, width: 120, height: 20, color: '#b84418' },
+            { x: 550, y: 280, width: 100, height: 20, color: '#b84418' }
+        ],
+        coins: [
+            { x: 245, y: 230 },
+            { x: 450, y: 160 },
+            { x: 590, y: 240 }
+        ],
+        enemies: [
+            { x: 600, y: 330, minX: 400, maxX: 750, speed: 2, direction: -1 }
+        ],
+        goal: { x: 755, y: 280, width: 26, height: 80 }
+    },
+    {
+        playerStart: { x: 50, y: 300 },
+        platforms: [
+            { x: 0, y: 360, width: 800, height: 40, color: '#4e9221' },
+            { x: 150, y: 300, width: 100, height: 20, color: '#b84418' },
+            { x: 320, y: 250, width: 100, height: 20, color: '#b84418' },
+            { x: 480, y: 190, width: 100, height: 20, color: '#b84418' },
+            { x: 630, y: 250, width: 120, height: 20, color: '#b84418' }
+        ],
+        coins: [
+            { x: 200, y: 260 },
+            { x: 370, y: 210 },
+            { x: 530, y: 150 },
+            { x: 690, y: 210 }
+        ],
+        enemies: [
+            { x: 350, y: 330, minX: 150, maxX: 400, speed: 2.5, direction: 1 },
+            { x: 700, y: 220, minX: 630, maxX: 740, speed: 2, direction: -1 }
+        ],
+        goal: { x: 755, y: 280, width: 26, height: 80 }
+    },
+    {
+        playerStart: { x: 50, y: 300 },
+        platforms: [
+            { x: 0, y: 360, width: 800, height: 40, color: '#4e9221' },
+            { x: 130, y: 310, width: 90, height: 20, color: '#b84418' },
+            { x: 260, y: 260, width: 90, height: 20, color: '#b84418' },
+            { x: 260, y: 150, width: 90, height: 20, color: '#b84418' },
+            { x: 420, y: 200, width: 90, height: 20, color: '#b84418' },
+            { x: 560, y: 260, width: 90, height: 20, color: '#b84418' },
+            { x: 690, y: 190, width: 90, height: 20, color: '#b84418' }
+        ],
+        coins: [
+            { x: 175, y: 270 },
+            { x: 305, y: 220 },
+            { x: 305, y: 110 },
+            { x: 465, y: 160 },
+            { x: 605, y: 220 }
+        ],
+        enemies: [
+            { x: 300, y: 330, minX: 130, maxX: 350, speed: 3, direction: 1 },
+            { x: 500, y: 330, minX: 420, maxX: 650, speed: 2.5, direction: -1 },
+            { x: 720, y: 150, minX: 690, maxX: 770, speed: 2, direction: -1 }
+        ],
+        goal: { x: 730, y: 110, width: 26, height: 80 }
+    }
+];
+
+// بازیکن
+const player = {
+    x: 50,
+    y: 300,
+    width: 30,
+    height: 40,
+    color: '#e52521',
+    dx: 0,
+    dy: 0,
+    speed: 5,
+    jumpPower: -12,
+    grounded: false,
+    facing: 1
+};
+
+let currentLevelIndex = 0;
+let platforms = [];
+let coins = [];
+let enemies = [];
+let goal = null;
+
+// gameState: 'playing' | 'transition' | 'won'
+let gameState = 'playing';
+let transitionTimer = 0;
+let transitionMessage = '';
+
+const keys = { right: false, left: false };
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+    if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+    if ((e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ') && player.grounded) {
+        player.dy = player.jumpPower;
+        player.grounded = false;
+    }
+    if (gameState === 'won' && (e.key === 'Enter' || e.key === ' ')) {
+        startGame();
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+    if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+});
+
+function loadLevel(index) {
+    const level = LEVELS[index];
+    platforms = level.platforms;
+    coins = level.coins.map(c => ({ x: c.x, y: c.y, radius: 8, collected: false }));
+    enemies = level.enemies.map(e => ({
+        x: e.x, y: e.y, width: 30, height: 30, color: '#795548',
+        minX: e.minX, maxX: e.maxX, speed: e.speed, direction: e.direction
+    }));
+    goal = level.goal;
+
+    player.x = level.playerStart.x;
+    player.y = level.playerStart.y;
+    player.dx = 0;
+    player.dy = 0;
+}
+
+function resetLevel() {
+    // فقط مرحله فعلی از نو شروع می‌شود، امتیاز حفظ می‌شود
+    loadLevel(currentLevelIndex);
+}
+
+function startGame() {
+    score = 0;
+    currentLevelIndex = 0;
+    gameState = 'playing';
+    loadLevel(currentLevelIndex);
+}
+
+function update() {
+    if (gameState === 'transition') {
+        transitionTimer--;
+        if (transitionTimer <= 0) {
+            currentLevelIndex++;
+            if (currentLevelIndex >= LEVELS.length) {
+                gameState = 'won';
+            } else {
+                loadLevel(currentLevelIndex);
+                gameState = 'playing';
+            }
+        }
+        draw();
+        requestAnimationFrame(update);
+        return;
+    }
+
+    if (gameState === 'won') {
+        draw();
+        requestAnimationFrame(update);
+        return;
+    }
+
+    // حرکت بازیکن
+    if (keys.right) { player.dx = player.speed; player.facing = 1; }
+    else if (keys.left) { player.dx = -player.speed; player.facing = -1; }
+    else player.dx = 0;
+
+    player.x += player.dx;
+    player.dy += gravity;
+    player.y += player.dy;
+
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+    // برخورد بازیکن با سکوها
+    player.grounded = false;
+    platforms.forEach(platform => {
+        if (
+            player.x < platform.x + platform.width &&
+            player.x + player.width > platform.x &&
+            player.y + player.height <= platform.y + player.dy &&
+            player.y + player.height + player.dy >= platform.y
+        ) {
+            player.dy = 0;
+            player.y = platform.y - player.height;
+            player.grounded = true;
+        }
+    });
+
+    // اگر از پایین صفحه بیفتد، مرحله از نو شروع شود
+    if (player.y > canvas.height) {
+        resetLevel();
+    }
+
+    // حرکت دشمن‌ها و چرخش بین مرزهای هر کدام
+    enemies.forEach(enemy => {
+        enemy.x += enemy.speed * enemy.direction;
+        if (enemy.x <= enemy.minX || enemy.x + enemy.width >= enemy.maxX) {
+            enemy.direction *= -1;
+        }
+    });
+
+    // برخورد بازیکن با سکه‌ها
+    coins.forEach(coin => {
+        if (!coin.collected) {
+            const distX = (player.x + player.width / 2) - coin.x;
+            const distY = (player.y + player.height / 2) - coin.y;
+            const distance = Math.sqrt(distX * distX + distY * distY);
+
+            if (distance < player.width / 2 + coin.radius) {
+                coin.collected = true;
+                score += 10;
+            }
+        }
+    });
+
+    // برخورد بازیکن با دشمن‌ها (باختن مرحله)
+    enemies.forEach(enemy => {
+        if (
+            player.x < enemy.x + enemy.width &&
+            player.x + player.width > enemy.x &&
+            player.y < enemy.y + enemy.height &&
+            player.y + player.height > enemy.y
+        ) {
+            resetLevel();
+        }
+    });
+
+    // برخورد بازیکن با پرچم پایان مرحله
+    if (
+        goal &&
+        player.x < goal.x + goal.width &&
+        player.x + player.width > goal.x &&
+        player.y < goal.y + goal.height &&
+        player.y + player.height > goal.y
+    ) {
+        gameState = 'transition';
+        transitionTimer = 90;
+        transitionMessage = (currentLevelIndex < LEVELS.length - 1)
+            ? `مرحله ${currentLevelIndex + 1} کامل شد! 🎉`
+            : 'آخرین مرحله کامل شد! 🏆';
+    }
+
+    draw();
+    requestAnimationFrame(update);
+}
+
+function drawMushroom(x, y, w, h, facing) {
+    const capHeight = h * 0.55;
+    const stemHeight = h - capHeight;
+    const cx = x + w / 2;
+
+    // ساقه (پایه کرم‌رنگ)
+    const stemWidth = w * 0.6;
+    ctx.fillStyle = '#f4e4c1';
+    ctx.fillRect(cx - stemWidth / 2, y + capHeight, stemWidth, stemHeight);
+    ctx.strokeStyle = '#c9a876';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - stemWidth / 2, y + capHeight, stemWidth, stemHeight);
+
+    // کلاهک (نیم‌دایره قرمز)
+    ctx.fillStyle = '#e52521';
+    ctx.beginPath();
+    ctx.moveTo(x, y + capHeight);
+    ctx.arc(cx, y + capHeight, w / 2, Math.PI, 0, false);
+    ctx.lineTo(x + w, y + capHeight);
+    ctx.closePath();
+    ctx.fill();
+
+    // لبه سفید زیر کلاهک
+    ctx.fillStyle = '#f4e4c1';
+    ctx.fillRect(x, y + capHeight - 3, w, 4);
+
+    // خال‌های سفید روی کلاهک
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx - w * 0.22, y + capHeight * 0.45, w * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + w * 0.22, y + capHeight * 0.4, w * 0.11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, y + capHeight * 0.78, w * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+
+    // چشم‌ها روی ساقه (جهت نگاه بر اساس حرکت)
+    const eyeY = y + capHeight + stemHeight * 0.35;
+    const eyeOffsetX = facing >= 0 ? w * 0.08 : -w * 0.08;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(cx - w * 0.15 + eyeOffsetX, eyeY, w * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + w * 0.15 + eyeOffsetX, eyeY, w * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // رسم سکوها
+    platforms.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+    });
+
+    // رسم سکه‌ها
+    coins.forEach(c => {
+        if (!c.collected) {
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD700'; // طلایی
+            ctx.fill();
+            ctx.closePath();
+        }
+    });
+
+    // رسم پرچم پایان مرحله
+    if (goal) {
+        ctx.fillStyle = '#ccc';
+        ctx.fillRect(goal.x + goal.width / 2 - 2, goal.y, 4, goal.height);
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.moveTo(goal.x + goal.width / 2 + 2, goal.y + 6);
+        ctx.lineTo(goal.x + goal.width, goal.y + 16);
+        ctx.lineTo(goal.x + goal.width / 2 + 2, goal.y + 26);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // رسم دشمن‌ها
+    enemies.forEach(enemy => {
+        ctx.fillStyle = enemy.color;
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+    });
+
+    // رسم بازیکن به شکل قارچ
+    drawMushroom(player.x, player.y, player.width, player.height, player.facing);
+
+    // نمایش امتیاز و شماره مرحله
+    ctx.fillStyle = '#FFF';
+    ctx.font = '20px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(`امتیاز: ${score}`, 20, 30);
+    ctx.fillText(`مرحله ${currentLevelIndex + 1} از ${LEVELS.length}`, 20, 55);
+
+    // پیام بین مرحله‌ای
+    if (gameState === 'transition') {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(transitionMessage, canvas.width / 2, canvas.height / 2);
+        ctx.textAlign = 'left';
+    }
+
+    // پیام پایان بازی
+    if (gameState === 'won') {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 34px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('همه مراحل رو کامل کردی! 🏆', canvas.width / 2, canvas.height / 2 - 20);
+        ctx.fillStyle = '#FFF';
+        ctx.font = '22px Arial';
+        ctx.fillText(`امتیاز نهایی: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+        ctx.font = '18px Arial';
+        ctx.fillText('برای شروع دوباره Enter یا Space را بزن', canvas.width / 2, canvas.height / 2 + 55);
+        ctx.textAlign = 'left';
+    }
+}
+
+loadLevel(currentLevelIndex);
+update();
+</script>
+
+</body>
+</html>
